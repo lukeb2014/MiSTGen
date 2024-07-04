@@ -3,6 +3,7 @@ import sys
 sys.path.append("..")
 from mistgen.mist import mist_generator 
 from mistgen.utils.T_functions import arrangeT
+from matplotlib import pyplot as plt
 
 def main_demo_v020():
     ax = [0.0, 1.0,1.0,0.0]
@@ -24,7 +25,7 @@ def main_demo_v020():
     xxs,yys,tts = myMistGen.mist_2d_gen(waypts_ori,v0,a0,ve,ae,T)
     vaj_xy = myMistGen.mist_2d_vaj_gen(xxs,yys,tts)
     myMistGen.mist_2d_vis(waypts_ori,xxs,yys,tts,vaj_xy,True,True,False,False)
-    
+    # return
     ts[1] = ts[1] + 0.5
     ts[2] = ts[2] - 0.5
     myMistGen = mist_generator(ts,interval=0.01,n_order=5,n_deri=3)
@@ -96,3 +97,4 @@ def main_demo_v024():
     
 if __name__ == '__main__':
     main_demo_v020()
+    plt.show()

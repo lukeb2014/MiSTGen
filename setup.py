@@ -17,7 +17,7 @@ setup(
     url="https://github.com/zhz03/MiSTGen",
     packages=find_packages(),
     install_requires=[
-        "matplotlib==3.4.2",
+        "matplotlib",
         "numpy",
         "cvxopt"
         ],

@@ -5,13 +5,13 @@
 
 import numpy as np
 import math
-from utils.T_functions import arrangeT
-from utils.T_functions import init_T
-from utils.cvxopt_qp import quadprog
-from utils.other_utils import computeQ
-from utils.other_utils import calc_tvec
-from utils.other_utils import re_shape_vaj
-from utils.other_utils import poly_val
+from mistgen.utils.T_functions import arrangeT
+from mistgen.utils.T_functions import init_T
+from mistgen.utils.cvxopt_qp import quadprog
+from mistgen.utils.other_utils import computeQ
+from mistgen.utils.other_utils import calc_tvec
+from mistgen.utils.other_utils import re_shape_vaj
+from mistgen.utils.other_utils import poly_val
 from scipy.linalg import block_diag
 import matplotlib.pyplot as plt
 
@@ -24,6 +24,7 @@ class mist_generator():
         self.n_deri = n_deri if n_deri == None else n_deri
         self.polys_x = None
         self.polys_y = None
+        self.polys_z = None
         self.ts = np.array([]) if ts.size == 0 else ts
         
     def minimum_snap_single(self,waypts,ts,v0,a0,ve,ae):
@@ -234,6 +235,12 @@ class mist_generator():
         polys_x = self.minimum_snap_single(waypts[0],ts,v0[0],a0[0],ve[0],ae[0])
         polys_y = self.minimum_snap_single(waypts[1],ts,v0[1],a0[1],ve[1],ae[1])
         return polys_x,polys_y
+
+    def minimum_snap_3d(self,waypts,ts,v0,a0,ve,ae):
+        polys_x = self.minimum_snap_single(waypts[0],ts,v0[0],a0[0],ve[0],ae[0])
+        polys_y = self.minimum_snap_single(waypts[1],ts,v0[1],a0[1],ve[1],ae[1])
+        polys_z = self.minimum_snap_single(waypts[2],ts,v0[2],a0[2],ve[2],ae[2])
+        return polys_x,polys_y,polys_z
     
     def mist_2d_gen(self,waypts,v0,a0,ve,ae,T=None,ave_speed=None):
         """
@@ -310,6 +317,130 @@ class mist_generator():
             tts = np.append(tts,tt)
             
         return xxs,yys,tts
+    
+    def poly_derivative(self, poly, r):
+        """
+        Compute the r-th derivative of (a) polynomial(s).
+
+        Parameters
+        ----------
+        poly : np.array[float]
+            Coefficients of the polynomial. Shape is (n_coeffs, n_polys)
+        r : int
+            Order of the derivative.
+
+        Returns
+        -------
+        np.array[float]
+            Coefficients of the r-th derivative of the polynomials.
+
+        """
+        n = poly.shape[0] - 1
+        if r <= 0:
+            return poly
+        else:
+            poly_d = np.zeros((n - r + 1, poly.shape[1]))
+            for i in range(n - r + 1):
+                poly_d[i, :] = np.prod(np.arange(i + 1, i + r + 1)) * poly[i + r, :]
+            return poly_d
+
+    def mist_3d_gen(self, waypts, v0, a0, ve, ae, T=None, ave_speed=None, do_vel=False, do_acc=False):
+        # This is similar to mist_2d_gen, but includes the z axis
+
+        if waypts.size != 0:
+            waypts = waypts
+        else:
+            # Throw an exception
+            raise Exception("waypts is not defined")
+        v0 = v0 if v0.size != 0 else np.array([0, 0, 0])
+        a0 = a0 if a0.size != 0 else np.array([0, 0, 0])
+        ve = ve if ve.size != 0 else np.array([0, 0, 0])
+        ae = ae if ae.size != 0 else np.array([0, 0, 0])
+
+        if T == None and ave_speed != None:
+            T = init_T(waypts, ave_speed)
+        elif T == None and ave_speed == None:
+            print('[WARN] Both Total time {T} and ave_speed are not defined!')
+            print('[WARN] Example default T will be assigned.')
+            T = 10
+        else:
+            T = T
+
+        if self.ts.size == 0:
+            self.ts = arrangeT(waypts, T)
+            print(f'[INFO] Time series: {self.ts}')
+            print(f'[INFO] Time series shape: {self.ts.shape}')
+
+        self.polys_x, self.polys_y, self.polys_z = self.minimum_snap_3d(waypts, self.ts, v0, a0, ve, ae)
+        print(f'[INFO] polys_x shape: {self.polys_x.shape}')
+
+        # Compute polynomials corresponding to velocity and acceleration
+        # The shape of polys_vel_x will be (n_coeffs-1) by n_polys relative to polys_x.
+        if do_vel:
+            self.polys_vel_x = self.poly_derivative(self.polys_x, 1)
+            self.polys_vel_y = self.poly_derivative(self.polys_y, 1)
+            self.polys_vel_z = self.poly_derivative(self.polys_z, 1)
+            xx_v_s = np.array([])
+            yy_v_s = np.array([])
+            zz_v_s = np.array([])
+        if do_acc:
+            self.polys_acc_x = self.poly_derivative(self.polys_x, 2)
+            self.polys_acc_y = self.poly_derivative(self.polys_y, 2)
+            self.polys_acc_z = self.poly_derivative(self.polys_z, 2)
+            xx_a_s = np.array([])
+            yy_a_s = np.array([])
+            zz_a_s = np.array([])
+
+        xxs = np.array([])
+        yys = np.array([])
+        zzs = np.array([])
+        tts = np.array([])
+
+        print(f'[INFO] len(self.polys_x[0]): {len(self.polys_x[0])}')
+        if self.ts.size > 0:
+            last_tt = self.ts[0]
+        else:
+            last_tt = 0
+        for i in range(len(self.polys_x[0])):
+            tt = np.arange(last_tt, self.ts[i + 1], self.interval)
+            last_tt = tt[-1] + self.interval # where to start the next sampling.
+
+            # Remove the last value from tt.
+            # tt = tt[:-1]
+
+            xx = self.polys_vals(self.polys_x, self.ts, tt, 0)
+            yy = self.polys_vals(self.polys_y, self.ts, tt, 0)
+            zz = self.polys_vals(self.polys_z, self.ts, tt, 0)
+            xxs = np.append(xxs, xx)
+            yys = np.append(yys, yy)
+            zzs = np.append(zzs, zz)
+            tts = np.append(tts, tt)
+
+            if do_vel:
+                xx_v = self.polys_vals(self.polys_vel_x, self.ts, tt, 0)
+                yy_v = self.polys_vals(self.polys_vel_y, self.ts, tt, 0)
+                zz_v = self.polys_vals(self.polys_vel_z, self.ts, tt, 0)
+
+                xx_v_s = np.append(xx_v_s, xx_v)
+                yy_v_s = np.append(yy_v_s, yy_v)
+                zz_v_s = np.append(zz_v_s, zz_v)
+
+            if do_acc:
+                xx_a = self.polys_vals(self.polys_acc_x, self.ts, tt, 0)
+                yy_a = self.polys_vals(self.polys_acc_y, self.ts, tt, 0)
+                zz_a = self.polys_vals(self.polys_acc_z, self.ts, tt, 0)
+
+                xx_a_s = np.append(xx_a_s, xx_a)
+                yy_a_s = np.append(yy_a_s, yy_a)
+                zz_a_s = np.append(zz_a_s, zz_a)
+
+
+            print(f'[INFO] xxs shape and iteration: {xxs.shape}, {i}')
+
+        if do_vel and do_acc:
+            return xxs, yys, zzs, xx_v_s, yy_v_s, zz_v_s, xx_a_s, yy_a_s, zz_a_s, tts
+        else:
+            return xxs, yys, zzs, tts
     
     def mist_2d_vaj_gen(self,xxs,yys,tts):
         """
