@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 @author: zhaoliang (zhz03@g.ucla.edu)
+@author: lukeb2014 (lbaird38@gatech.edu)
 """
 
 import numpy as np
@@ -368,11 +369,11 @@ class mist_generator():
 
         if self.ts.size == 0:
             self.ts = arrangeT(waypts, T)
-            print(f'[INFO] Time series: {self.ts}')
-            print(f'[INFO] Time series shape: {self.ts.shape}')
+            # print(f'[INFO] Time series: {self.ts}')
+            # print(f'[INFO] Time series shape: {self.ts.shape}')
 
         self.polys_x, self.polys_y, self.polys_z = self.minimum_snap_3d(waypts, self.ts, v0, a0, ve, ae)
-        print(f'[INFO] polys_x shape: {self.polys_x.shape}')
+        # print(f'[INFO] polys_x shape: {self.polys_x.shape}')
 
         # Compute polynomials corresponding to velocity and acceleration
         # The shape of polys_vel_x will be (n_coeffs-1) by n_polys relative to polys_x.
@@ -396,7 +397,7 @@ class mist_generator():
         zzs = np.array([])
         tts = np.array([])
 
-        print(f'[INFO] len(self.polys_x[0]): {len(self.polys_x[0])}')
+        # print(f'[INFO] len(self.polys_x[0]): {len(self.polys_x[0])}')
         if self.ts.size > 0:
             last_tt = self.ts[0]
         else:
@@ -435,7 +436,7 @@ class mist_generator():
                 zz_a_s = np.append(zz_a_s, zz_a)
 
 
-            print(f'[INFO] xxs shape and iteration: {xxs.shape}, {i}')
+            # print(f'[INFO] xxs shape and iteration: {xxs.shape}, {i}')
 
         if do_vel and do_acc:
             return xxs, yys, zzs, xx_v_s, yy_v_s, zz_v_s, xx_a_s, yy_a_s, zz_a_s, tts
