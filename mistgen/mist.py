@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 @author: zhaoliang (zhz03@g.ucla.edu)
+@author: lukeb2014 (lbaird38@gatech.edu)
 """
 
 import numpy as np
